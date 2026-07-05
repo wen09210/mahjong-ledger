@@ -170,13 +170,16 @@
     font-variant-numeric: tabular-nums;
   }
   ul.steps { text-align: left; font-size: clamp(16px, 2.2vw, 21px); line-height: 2.1; max-width: 760px; list-style: none; }
-  /* 條列符號:金色小牌造型(純 CSS,不用 emoji 當 icon) */
-  ul.steps li { position: relative; padding-left: 34px; }
+  /* 條列符號:迷你「中」字牌(純 CSS,不用 emoji 當 icon) */
+  ul.steps li { position: relative; padding-left: 36px; }
   ul.steps li::before {
-    content: ""; position: absolute; left: 0; top: .62em;
-    width: 14px; height: 19px; border-radius: 4px;
-    background: linear-gradient(168deg, var(--color-accent), var(--color-accent-deep));
-    box-shadow: 0 2px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.45);
+    content: "中"; position: absolute; left: 0; top: .48em;
+    display: flex; align-items: center; justify-content: center;
+    width: 18px; height: 23px; border-radius: 4px;
+    background: linear-gradient(168deg, #FFFDF6, var(--tile-face) 60%, #EFE8D8);
+    color: var(--red); font-size: 12px; font-weight: 900;
+    font-family: var(--font-display); line-height: 1;
+    box-shadow: 0 2px 0 var(--tile-edge), 0 4px 6px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.9);
   }
   .win-txt { color: var(--win); font-weight: 700; }
   .lose-txt { color: var(--lose); font-weight: 700; }
@@ -216,8 +219,8 @@
     .url { font-size: 13px; padding: 10px 14px; word-break: break-all; max-width: 88vw; }
     .big-formula { font-size: 16px; padding: 12px 18px; }
     ul.steps { font-size: 15px; line-height: 1.9; }
-    ul.steps li { padding-left: 26px; }
-    ul.steps li::before { width: 11px; height: 15px; top: .55em; }
+    ul.steps li { padding-left: 28px; }
+    ul.steps li::before { width: 15px; height: 19px; font-size: 10px; top: .42em; }
     .card { padding: 18px 16px; }
     .hint { display: none; }
   }
