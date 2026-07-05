@@ -19,6 +19,12 @@
     };
   </script>
 
+  <!-- Trystero:WebRTC 點對點共享(預設 Nostr 訊號源,免註冊免後端) -->
+  <script type="module">
+    import { joinRoom } from "https://cdn.jsdelivr.net/npm/trystero@0.21/+esm";
+    window.trysteroJoinRoom = joinRoom;
+  </script>
+
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>

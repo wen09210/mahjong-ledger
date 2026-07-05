@@ -15,6 +15,14 @@ const DEFAULT_STATE = {
 
 const fmt = (n) => (n > 0 ? `+${n.toLocaleString()}` : n.toLocaleString());
 
+// ── 共享對局(Trystero WebRTC 點對點)──
+// window.trysteroJoinRoom 由 index.html 注入;claude.ai Artifact 環境沒有,功能自動隱藏
+let shareRoom = null; // 目前連線中的房間
+let shareSend = null; // 房主廣播狀態用(牌友端為 null)
+let latestState = DEFAULT_STATE; // 讓 onPeerJoin 閉包拿得到最新狀態
+const SHARE_APP_ID = "mahjong-ledger-share-v1";
+const genRoomCode = () => String(Math.floor(1000 + Math.random() * 9000));
+
 export default function MahjongLedger() {
   const [state, setState] = useState(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -28,6 +36,12 @@ export default function MahjongLedger() {
   const [manualAmts, setManualAmts] = useState(["", "", "", ""]); // 手動模式:各家金額
   const [flash, setFlash] = useState(null);
   const [editing, setEditing] = useState(null); // 正在改名的玩家 index
+  // 共享對局
+  const [share, setShare] = useState({ role: null, code: "", peers: 0 }); // role: null|'host'|'guest'
+  const [joinCode, setJoinCode] = useState("");
+  const canShare = typeof window !== "undefined" && typeof window.trysteroJoinRoom === "function";
+  const isGuest = share.role === "guest";
+  latestState = state;
 
   // 載入
   useEffect(() => {
@@ -44,6 +58,7 @@ export default function MahjongLedger() {
 
   const save = async (next) => {
     setState(next);
+    if (shareSend) shareSend(next); // 房主:即時廣播給牌友
     try {
       await window.storage.set(STORAGE_KEY, JSON.stringify(next));
     } catch (e) {
@@ -129,6 +144,57 @@ export default function MahjongLedger() {
     save({ ...state, players });
   };
 
+  // ── 共享對局 ──
+  const startHost = () => {
+    const code = genRoomCode();
+    const room = window.trysteroJoinRoom({ appId: SHARE_APP_ID }, "mj-" + code);
+    const [send] = room.makeAction("state");
+    shareRoom = room;
+    shareSend = send;
+    if (typeof window !== "undefined") window.__mjShare = { room, send }; // 除錯用
+    room.onPeerJoin(() => {
+      send(latestState); // 新牌友一進來就給完整狀態
+      setShare((s) => ({ ...s, peers: s.peers + 1 }));
+    });
+    room.onPeerLeave(() => setShare((s) => ({ ...s, peers: Math.max(0, s.peers - 1) })));
+    setShare({ role: "host", code, peers: 0 });
+  };
+
+  const joinAsGuest = () => {
+    const code = joinCode.trim();
+    if (!/^\d{4}$/.test(code)) {
+      alert("請輸入 4 位數房號");
+      return;
+    }
+    const room = window.trysteroJoinRoom({ appId: SHARE_APP_ID }, "mj-" + code);
+    shareRoom = room;
+    const [, getState] = room.makeAction("state");
+    getState((s) => setState({ ...DEFAULT_STATE, ...s })); // 只更新畫面,不動自己的 localStorage
+    room.onPeerJoin(() => setShare((s) => ({ ...s, peers: s.peers + 1 })));
+    room.onPeerLeave(() => setShare((s) => ({ ...s, peers: Math.max(0, s.peers - 1) })));
+    setShare({ role: "guest", code, peers: 0 });
+    setJoinCode("");
+    setTab("history");
+  };
+
+  const leaveShare = async () => {
+    const wasGuest = isGuest;
+    if (shareRoom) shareRoom.leave();
+    shareRoom = null;
+    shareSend = null;
+    setShare({ role: null, code: "", peers: 0 });
+    if (wasGuest) {
+      // 還原自己裝置上的紀錄
+      try {
+        const r = await window.storage.get(STORAGE_KEY);
+        setState(r?.value ? { ...DEFAULT_STATE, ...JSON.parse(r.value) } : DEFAULT_STATE);
+      } catch (e) {
+        setState(DEFAULT_STATE);
+      }
+      setTab("record");
+    }
+  };
+
   if (!loaded)
     return (
       <div style={S.page}>
@@ -164,8 +230,8 @@ export default function MahjongLedger() {
           <div
             key={i}
             className={flash === i ? "tile win-flash" : "tile"}
-            style={{ ...S.tile, cursor: "pointer" }}
-            onClick={() => editing === null && setEditing(i)}
+            style={{ ...S.tile, cursor: isGuest ? "default" : "pointer" }}
+            onClick={() => !isGuest && editing === null && setEditing(i)}
           >
             {editing === i ? (
               <input
@@ -193,10 +259,24 @@ export default function MahjongLedger() {
         ))}
       </div>
 
+      {/* 共享狀態橫幅 */}
+      {share.role && (
+        <div style={S.shareBanner}>
+          <span>
+            {share.role === "host"
+              ? `房號 ${share.code}・${share.peers} 位牌友連線中`
+              : `觀看中・房間 ${share.code}${share.peers > 0 ? "" : "(等待房主…)"}`}
+          </span>
+          <button style={S.shareLeave} onClick={leaveShare}>
+            離開
+          </button>
+        </div>
+      )}
+
       {/* 分頁 */}
       <nav style={S.tabs}>
         {[
-          ["record", "記一筆"],
+          ...(isGuest ? [] : [["record", "記一筆"]]),
           ["history", "歷史"],
           ["settings", "設定"],
         ].map(([k, label]) => (
@@ -211,7 +291,7 @@ export default function MahjongLedger() {
       </nav>
 
       {/* ── 記一筆 ── */}
-      {tab === "record" && (
+      {tab === "record" && !isGuest && (
         <section style={S.card}>
           <div style={S.label}>記帳方式</div>
           <div style={S.btnRow}>
@@ -401,9 +481,11 @@ export default function MahjongLedger() {
                     {r.time}・{r.amounts.map((a, i) => `${state.players[i]} ${fmt(a)}`).join("  ")}
                   </div>
                 </div>
-                <button style={S.del} onClick={() => deleteRecord(r.id)}>
-                  刪除
-                </button>
+                {!isGuest && (
+                  <button style={S.del} onClick={() => deleteRecord(r.id)}>
+                    刪除
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -411,8 +493,51 @@ export default function MahjongLedger() {
       )}
 
       {/* ── 設定 ── */}
-      {tab === "settings" && (
+      {tab === "settings" && isGuest && (
         <section style={S.card}>
+          <div style={S.label}>共享對局</div>
+          <div style={S.preview}>
+            觀看模式:畫面即時同步自房主,你自己裝置上的紀錄不受影響,離開房間後會還原。
+          </div>
+          <button style={S.reset} onClick={leaveShare}>
+            離開房間
+          </button>
+        </section>
+      )}
+      {tab === "settings" && !isGuest && (
+        <section style={S.card}>
+          <div style={S.label}>共享對局(給牌友看即時分數)</div>
+          {!canShare ? (
+            <div style={S.preview}>此環境不支援共享功能。</div>
+          ) : share.role === "host" ? (
+            <div style={S.preview}>
+              房號 <b style={{ fontSize: 18, letterSpacing: 3 }}>{share.code}</b>
+              ・{share.peers} 位牌友連線中
+              <br />
+              牌友打開同一個網頁,在設定輸入房號即可觀看。
+            </div>
+          ) : (
+            <>
+              <button style={{ ...S.pick, width: "100%", marginBottom: 8 }} onClick={startHost}>
+                開房間(我負責記帳)
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="輸入 4 位數房號"
+                  maxLength={4}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.replace(/[^0-9]/g, ""))}
+                  style={{ ...S.input, marginBottom: 0, flex: 1 }}
+                />
+                <button style={S.autoBtn} onClick={joinAsGuest}>
+                  加入觀看
+                </button>
+              </div>
+            </>
+          )}
+
           <div style={S.label}>玩家名字</div>
           {state.players.map((p, i) => (
             <input
@@ -510,6 +635,32 @@ const S = {
     padding: "2px 2px",
   },
   tileScore: { fontSize: 17, fontWeight: 800, marginTop: 4, fontVariantNumeric: "tabular-nums" },
+  shareBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    background: "rgba(217,164,65,.15)",
+    border: "1px solid rgba(217,164,65,.5)",
+    borderRadius: 10,
+    padding: "8px 12px",
+    marginBottom: 12,
+    color: "#F0D9A8",
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: 1,
+  },
+  shareLeave: {
+    border: "1px solid rgba(240,217,168,.6)",
+    background: "transparent",
+    color: "#F0D9A8",
+    borderRadius: 8,
+    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
   tabs: {
     display: "flex",
     gap: 6,
