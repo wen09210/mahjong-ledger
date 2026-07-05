@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>麻將記帳・使用簡報</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --green-dark: #1E4536;
+    --green: #2E6B4F;
+    --cream: #F5F1E8;
+    --red: #B3402E;
+    --gold: #C9A85C;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    background: var(--green-dark);
+    color: var(--cream);
+    overflow: hidden;
+  }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6vh 8vw;
+    text-align: center;
+  }
+  .slide.active { display: flex; animation: fadeIn .4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .tile {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--cream); color: var(--red);
+    border-radius: 14px; font-weight: 800;
+    width: 84px; height: 108px; font-size: 52px;
+    box-shadow: 0 6px 0 #cfc8b8, 0 10px 18px rgba(0,0,0,.35);
+    margin: 0 8px;
+  }
+  .tile.small { width: 74px; height: 90px; font-size: 22px; border-radius: 10px; box-shadow: 0 4px 0 #cfc8b8, 0 7px 12px rgba(0,0,0,.3); flex-direction: column; gap: 4px; }
+  .tile.win { color: var(--red); }
+  .tile.lose { color: var(--green); }
+  .tile .num { font-size: 20px; display:block; }
+
+  h1 { font-size: clamp(36px, 6vw, 64px); margin: 28px 0 12px; letter-spacing: .06em; }
+  h2 { font-size: clamp(26px, 4.2vw, 44px); margin-bottom: 24px; letter-spacing: .05em; }
+  h2 .tag {
+    display: inline-block; background: var(--gold); color: var(--green-dark);
+    font-size: .5em; padding: 4px 14px; border-radius: 999px; vertical-align: middle;
+    margin-right: 14px; letter-spacing: .1em;
+  }
+  p.sub { font-size: clamp(16px, 2.2vw, 22px); opacity: .85; line-height: 1.8; }
+  a { color: var(--gold); text-decoration: none; border-bottom: 1px dashed var(--gold); }
+
+  .url {
+    margin-top: 30px; background: rgba(245,241,232,.1);
+    border: 1px solid rgba(245,241,232,.3); border-radius: 12px;
+    padding: 14px 26px; font-size: clamp(15px, 2.4vw, 24px);
+    font-family: ui-monospace, Menlo, monospace; letter-spacing: .02em;
+  }
+
+  .cards { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; max-width: 1100px; }
+  .card {
+    background: rgba(245,241,232,.08);
+    border: 1px solid rgba(245,241,232,.22);
+    border-radius: 16px; padding: 26px 24px;
+    width: min(300px, 80vw); text-align: left;
+  }
+  .card h3 { color: var(--gold); font-size: 22px; margin-bottom: 10px; }
+  .card p { font-size: 16px; line-height: 1.75; opacity: .9; }
+  .card .formula {
+    margin-top: 12px; background: rgba(0,0,0,.25); border-radius: 8px;
+    padding: 8px 12px; font-size: 15px; color: var(--cream);
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  .big-formula {
+    background: rgba(0,0,0,.25); border-radius: 14px;
+    padding: 18px 34px; font-size: clamp(18px, 3vw, 30px);
+    font-family: ui-monospace, Menlo, monospace; margin: 8px 0 22px;
+    border: 1px solid rgba(201,168,92,.4);
+  }
+  ul.steps { text-align: left; font-size: clamp(16px, 2.2vw, 21px); line-height: 2.1; max-width: 760px; list-style: none; }
+  ul.steps li::before { content: "🀄"; margin-right: 12px; font-size: .9em; }
+  .win-txt { color: #E8846F; font-weight: 700; }
+  .lose-txt { color: #7FBF9E; font-weight: 700; }
+
+  .nav {
+    position: fixed; bottom: 22px; left: 0; right: 0;
+    display: flex; justify-content: center; align-items: center; gap: 10px; z-index: 10;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(245,241,232,.3); cursor: pointer; transition: .2s; }
+  .dot.on { background: var(--gold); transform: scale(1.3); }
+  .hint { position: fixed; bottom: 20px; right: 26px; font-size: 13px; opacity: .5; }
+  .pagenum { position: fixed; bottom: 20px; left: 26px; font-size: 13px; opacity: .5; font-family: ui-monospace, monospace; }
+
+  /* 窄螢幕(手機/窄視窗) */
+  @media (max-width: 640px) {
+    .slide { padding: 4vh 6vw 90px; overflow-y: auto; justify-content: flex-start; padding-top: 10vh; }
+    .tile { width: 56px; height: 72px; font-size: 32px; border-radius: 10px; margin: 0 4px;
+            box-shadow: 0 4px 0 #cfc8b8, 0 7px 12px rgba(0,0,0,.3); }
+    .tile.small { width: 52px; height: 70px; font-size: 15px; margin: 0 2px; }
+    .tile.small .num { font-size: 11px; }
+    .url { font-size: 13px; padding: 10px 14px; word-break: break-all; max-width: 88vw; }
+    .big-formula { font-size: 16px; padding: 12px 18px; }
+    ul.steps { font-size: 15px; line-height: 1.9; }
+    .card { padding: 18px 16px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1 封面 -->
+<section class="slide active">
+  <div>
+    <span class="tile">中</span><span class="tile" style="color:var(--green)">發</span><span class="tile" style="color:#333">白</span>
+  </div>
+  <h1>麻將記帳</h1>
+  <p class="sub">台灣麻將專用・打牌時開著,誰胡了按一按,分數自動算好</p>
+  <div class="url">https://wen09210.github.io/mahjong-ledger/</div>
+  <p class="sub" style="margin-top:18px">不用安裝・不用註冊・手機瀏覽器打開就能用</p>
+</section>
+
+<!-- 2 畫面總覽 -->
+<section class="slide">
+  <h2><span class="tag">總覽</span>一眼看懂畫面</h2>
+  <div style="margin-bottom:26px">
+    <span class="tile small win">阿明<span class="num">+360</span></span>
+    <span class="tile small lose">小華<span class="num">−120</span></span>
+    <span class="tile small lose">老王<span class="num">−120</span></span>
+    <span class="tile small lose">阿珠<span class="num">−120</span></span>
+  </div>
+  <ul class="steps">
+    <li>頂端四張<b>分數牌</b>:<span class="win-txt">紅色=贏</span>、<span class="lose-txt">綠色=輸</span>(台灣紅漲綠跌習慣)</li>
+    <li>點分數牌可以直接改玩家名字</li>
+    <li>下方三個分頁:<b>記一筆</b>・<b>歷史</b>・<b>設定</b></li>
+  </ul>
+</section>
+
+<!-- 3 設定 -->
+<section class="slide">
+  <h2><span class="tag">STEP 1</span>開打前,先到「設定」</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>玩家名字</h3>
+      <p>把東、南、西、北改成四位牌友的名字,分數牌跟著換。</p>
+    </div>
+    <div class="card">
+      <h3>底</h3>
+      <p>每局的底分。</p>
+      <div class="formula">預設 100</div>
+    </div>
+    <div class="card">
+      <h3>每台</h3>
+      <p>一台多少錢。</p>
+      <div class="formula">預設 20</div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:26px">設定好會自動記住,之後打開直接用。</p>
+</section>
+
+<!-- 4 自摸 -->
+<section class="slide">
+  <h2><span class="tag">STEP 2</span>記帳方式一:自摸</h2>
+  <div class="big-formula">三家各付 = 底 + 台 × 每台</div>
+  <ul class="steps">
+    <li>選「自摸」→ 點胡牌的人 → 用 + / − 調台數</li>
+    <li>其他三家各付一份,贏家一次收三份</li>
+    <li>例:底 100、每台 20、自摸 1 台 → 三家各付 120,贏家 <span class="win-txt">+360</span></li>
+    <li>按「胡了!記下來」,分數牌立刻更新</li>
+  </ul>
+</section>
+
+<!-- 5 放槍 -->
+<section class="slide">
+  <h2><span class="tag">STEP 2</span>記帳方式二:放槍</h2>
+  <div class="big-formula">放槍者付 = 底 + 台 × 每台</div>
+  <ul class="steps">
+    <li>選「放槍」→ 點胡牌的人、再點放槍的人 → 調台數</li>
+    <li>只有放槍的那家付錢,其他兩家不動</li>
+    <li>例:底 100、每台 20、3 台 → 放槍者 <span class="lose-txt">−160</span>,贏家 <span class="win-txt">+160</span></li>
+    <li>金額欄可以手動改(算法特殊時),有「恢復自動」可還原</li>
+  </ul>
+</section>
+
+<!-- 6 手動 -->
+<section class="slide">
+  <h2><span class="tag">STEP 2</span>記帳方式三:手動</h2>
+  <p class="sub" style="margin-bottom:20px">詐胡、包牌、特殊算法……什麼都能記</p>
+  <ul class="steps">
+    <li>四家金額各自輸入,想怎麼分就怎麼分</li>
+    <li>每列有 <b>+ / −</b> 切換鈕(手機數字鍵盤沒有減號,所以用按的)</li>
+    <li>下方即時顯示四家合計,<b>合計 = 0</b> 才是一筆平衡的帳</li>
+    <li>手動記的帳,在歷史紀錄裡會特別標示</li>
+  </ul>
+</section>
+
+<!-- 7 歷史 -->
+<section class="slide">
+  <h2><span class="tag">STEP 3</span>歷史紀錄</h2>
+  <ul class="steps">
+    <li>每一局的時間、誰胡誰放、幾台、四家金額,通通有</li>
+    <li>記錯了?單筆刪除,總分自動重算</li>
+    <li>整場結束想歸零:設定 →「清空紀錄」</li>
+  </ul>
+</section>
+
+<!-- 8 注意事項 -->
+<section class="slide">
+  <h2><span class="tag">注意</span>紀錄存在哪裡?</h2>
+  <ul class="steps">
+    <li>紀錄自動存在<b>你這台裝置的瀏覽器</b>裡(localStorage)</li>
+    <li>下次打開還在,不用登入</li>
+    <li>但手機和電腦的紀錄<b>各自獨立、不會同步</b></li>
+    <li>清除瀏覽器資料會連紀錄一起清掉——換手機前記得先結清總帳 😄</li>
+  </ul>
+</section>
+
+<!-- 9 結尾 -->
+<section class="slide">
+  <span class="tile">胡</span>
+  <h1 style="font-size:clamp(30px,5vw,52px)">開打吧!</h1>
+  <div class="url">https://wen09210.github.io/mahjong-ledger/</div>
+  <p class="sub" style="margin-top:22px">
+    原始碼:<a href="https://github.com/wen09210/mahjong-ledger">github.com/wen09210/mahjong-ledger</a>
+  </p>
+</section>
+
+<div class="nav" id="nav"></div>
+<div class="pagenum" id="pagenum"></div>
+<div class="hint">← → 方向鍵或點擊翻頁</div>
+
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  const nav = document.getElementById("nav");
+  const pagenum = document.getElementById("pagenum");
+  let cur = 0;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.onclick = (e) => { e.stopPropagation(); go(i); };
+    nav.appendChild(d);
+  });
+  const dots = [...nav.children];
+
+  function go(i) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle("active", j === cur));
+    dots.forEach((d, j) => d.classList.toggle("on", j === cur));
+    pagenum.textContent = (cur + 1) + " / " + slides.length;
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", " ", "PageDown"].includes(e.key)) go(cur + 1);
+    if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) go(cur - 1);
+    if (e.key === "Home") go(0);
+    if (e.key === "End") go(slides.length - 1);
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
+    go(e.clientX < window.innerWidth / 3 ? cur - 1 : cur + 1);
+  });
+  let touchX = null;
+  document.addEventListener("touchstart", (e) => (touchX = e.touches[0].clientX));
+  document.addEventListener("touchend", (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) go(cur + (dx < 0 ? 1 : -1));
+    touchX = null;
+  });
+  go(0);
+</script>
+</body>
+</html>
