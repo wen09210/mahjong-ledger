@@ -13,6 +13,9 @@
   - **手動**:四家金額各自輸入,每列有 +/− 切換鈕(因手機數字鍵盤無減號),
     下方即時顯示四家合計是否為 0
 - 台數 stepper;金額欄可手動覆寫(點欄位自動全選),有「恢復自動」按鈕
+- 胡牌台數查詢(「台數」分頁):台灣 16 張常見牌型台數表(`TAI_TABLE`),
+  可搜尋、點選牌型累計台數(花牌/三元牌/連莊可疊加,點到上限歸零),
+  合計可一鍵帶入「記一筆」的台數
 - 歷史紀錄:每筆可刪除,手動筆會標示
 - 設定:玩家名、底(預設 100)、每台(預設 20)、清空紀錄
 - 所有狀態自動存入 window.storage
@@ -23,6 +26,9 @@
 - 樣式全部是 inline style(S 物件)+ 一小段 <style> CSS,無 Tailwind 依賴
 - 僅依賴 React(useState/useEffect),無其他套件
 - 金額輸入使用 type="text" + inputMode="numeric"(避免受控數字輸入的編輯問題)
+- 驗證改動:無 build step,直接開 index.html 點過流程即可。遠端環境若 unpkg/jsdelivr
+  被擋,可從 registry.npmjs.org 抓 react/react-dom/@babel/standalone 的 tarball
+  取出 UMD 檔本地供應(Trystero 載不到沒關係,共享功能會自動隱藏)
 
 ## 使用者接下來想做的事
 1. git init、建立分支(feature/mahjong-ledger)、推到 GitHub

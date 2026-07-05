@@ -23,6 +23,43 @@ let latestState = DEFAULT_STATE; // 讓 onPeerJoin 閉包拿得到最新狀態
 const SHARE_APP_ID = "mahjong-ledger-share-v1";
 const genRoomCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
+// ── 胡牌台數表(台灣 16 張常見算法)──
+// multi: 可累計的牌型(每張/每組/每連一莊),max 為累計上限
+const TAI_TABLE = [
+  { name: "莊家", tai: 1, desc: "莊家胡牌或被自摸,多算 1 台" },
+  { name: "連莊拉莊", tai: 2, desc: "莊家連 N 拉 N,每連一莊加 2 台", multi: true, max: 8 },
+  { name: "自摸", tai: 1, desc: "自己摸進胡牌" },
+  { name: "門清", tai: 1, desc: "沒有吃、碰、明槓(暗槓不影響)" },
+  { name: "獨聽", tai: 1, desc: "聽單吊、中洞或邊張" },
+  { name: "半求人", tai: 1, desc: "吃碰槓到只剩單吊,自摸胡牌(自摸台另計)" },
+  { name: "槓上開花", tai: 1, desc: "開槓補牌後自摸" },
+  { name: "海底撈月", tai: 1, desc: "摸牆上最後一張牌自摸" },
+  { name: "河底撈魚", tai: 1, desc: "胡本局最後一張打出的牌" },
+  { name: "搶槓", tai: 1, desc: "胡別人加槓的那張牌" },
+  { name: "花牌(正花)", tai: 1, desc: "對應自己門風的花牌,每張 1 台", multi: true, max: 8 },
+  { name: "圈風台", tai: 1, desc: "手上有圈風的刻子(如東風圈的東)" },
+  { name: "門風台", tai: 1, desc: "手上有自己門風的刻子" },
+  { name: "三元牌", tai: 1, desc: "中、發、白的刻子,每組 1 台", multi: true, max: 3 },
+  { name: "平胡", tai: 2, desc: "全順子、無字無花、非獨聽、非自摸" },
+  { name: "全求人", tai: 2, desc: "全靠吃碰只剩單吊,胡別人打的牌" },
+  { name: "三暗刻", tai: 2, desc: "三組自己摸齊的暗刻" },
+  { name: "碰碰胡", tai: 4, desc: "全部是刻子,沒有順子" },
+  { name: "混一色", tai: 4, desc: "整手只有一種花色加字牌" },
+  { name: "小三元", tai: 4, desc: "中發白其中兩組刻子,第三種當眼" },
+  { name: "四暗刻", tai: 5, desc: "四組自己摸齊的暗刻" },
+  { name: "清一色", tai: 8, desc: "整手同一種花色,沒有字牌" },
+  { name: "大三元", tai: 8, desc: "中、發、白三組刻子" },
+  { name: "小四喜", tai: 8, desc: "東南西北其中三組刻子,第四種當眼" },
+  { name: "五暗刻", tai: 8, desc: "五組自己摸齊的暗刻" },
+  { name: "八仙過海", tai: 8, desc: "八張花牌全部收齊" },
+  { name: "七搶一", tai: 8, desc: "自己七張花,搶胡別人的第八張花" },
+  { name: "天聽", tai: 8, desc: "配完牌(莊家打第一張前)就聽牌" },
+  { name: "字一色", tai: 16, desc: "整手全是字牌" },
+  { name: "大四喜", tai: 16, desc: "東南西北四組刻子" },
+  { name: "天胡", tai: 16, desc: "莊家起手配牌就胡" },
+  { name: "地胡", tai: 16, desc: "閒家第一輪摸牌就自摸胡" },
+];
+
 export default function MahjongLedger() {
   const [state, setState] = useState(DEFAULT_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -36,6 +73,9 @@ export default function MahjongLedger() {
   const [manualAmts, setManualAmts] = useState(["", "", "", ""]); // 手動模式:各家金額
   const [flash, setFlash] = useState(null);
   const [editing, setEditing] = useState(null); // 正在改名的玩家 index
+  // 台數查詢
+  const [taiQuery, setTaiQuery] = useState("");
+  const [taiSel, setTaiSel] = useState({}); // 已選牌型 {名稱: 次數}
   // 共享對局
   const [share, setShare] = useState({ role: null, code: "", peers: 0 }); // role: null|'host'|'guest'
   const [joinCode, setJoinCode] = useState("");
@@ -142,6 +182,26 @@ export default function MahjongLedger() {
     const players = [...state.players];
     players[i] = name;
     save({ ...state, players });
+  };
+
+  // ── 台數查詢 ──
+  const taiTotal = TAI_TABLE.reduce((s, t) => s + t.tai * (taiSel[t.name] || 0), 0);
+
+  const toggleTai = (t) => {
+    setTaiSel((sel) => {
+      const cur = sel[t.name] || 0;
+      const next = cur >= (t.multi ? t.max : 1) ? 0 : cur + 1; // 點到上限就取消
+      const copy = { ...sel };
+      if (next === 0) delete copy[t.name];
+      else copy[t.name] = next;
+      return copy;
+    });
+  };
+
+  const applyTaiToRecord = () => {
+    setTai(taiTotal);
+    if (type === "manual") setType("zimo"); // 手動模式沒有台數,切回自摸
+    setTab("record");
   };
 
   // ── 共享對局 ──
@@ -277,6 +337,7 @@ export default function MahjongLedger() {
       <nav style={S.tabs}>
         {[
           ...(isGuest ? [] : [["record", "記一筆"]]),
+          ["tai", "台數"],
           ["history", "歷史"],
           ["settings", "設定"],
         ].map(([k, label]) => (
@@ -451,6 +512,78 @@ export default function MahjongLedger() {
           <button className="go" style={S.go} onClick={addRecord}>
             {type === "manual" ? "記下來" : "胡了!記下來"}
           </button>
+        </section>
+      )}
+
+      {/* ── 台數查詢 ── */}
+      {tab === "tai" && (
+        <section style={S.card}>
+          <input
+            type="text"
+            placeholder="搜尋牌型,例如:清一色、自摸"
+            value={taiQuery}
+            onChange={(e) => setTaiQuery(e.target.value)}
+            style={{ ...S.input, marginBottom: 4 }}
+          />
+          {(() => {
+            const q = taiQuery.trim();
+            const list = TAI_TABLE.filter((t) => !q || t.name.includes(q) || t.desc.includes(q));
+            if (list.length === 0)
+              return <div style={S.empty}>找不到「{q}」,換個關鍵字試試。</div>;
+            const taiValues = [...new Set(list.map((t) => t.tai))];
+            return taiValues.map((v) => (
+              <div key={v}>
+                <div style={S.label}>{v} 台</div>
+                {list
+                  .filter((t) => t.tai === v)
+                  .map((t) => {
+                    const n = taiSel[t.name] || 0;
+                    return (
+                      <button
+                        key={t.name}
+                        onClick={() => toggleTai(t)}
+                        style={{ ...S.taiItem, ...(n > 0 ? S.taiItemOn : {}) }}
+                      >
+                        <div style={{ flex: 1, textAlign: "left" }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: "#3A332A" }}>
+                            {t.name}
+                            {t.multi && n > 1 && (
+                              <span style={{ color: "#B3402E" }}> ×{n}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#8A7F6E", marginTop: 2 }}>
+                            {t.desc}
+                          </div>
+                        </div>
+                        <div style={{ ...S.taiVal, color: n > 0 ? "#B3402E" : "#8A7F6E" }}>
+                          {t.multi && n > 1 ? `${t.tai * n}` : t.tai} 台
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+            ));
+          })()}
+
+          {taiTotal > 0 && (
+            <div style={S.taiBar}>
+              <div style={{ flex: 1, fontWeight: 800, fontSize: 16, color: "#3A332A" }}>
+                合計 <span style={{ color: "#B3402E", fontSize: 20 }}>{taiTotal}</span> 台
+              </div>
+              <button style={S.autoBtn} onClick={() => setTaiSel({})}>
+                清除
+              </button>
+              {!isGuest && (
+                <button style={S.taiApply} onClick={applyTaiToRecord}>
+                  帶入記一筆
+                </button>
+              )}
+            </div>
+          )}
+          <div style={{ ...S.preview, fontSize: 12 }}>
+            點牌型累計台數;可疊的牌型(花牌、三元牌…)多點幾下,點到上限會歸零。
+            台數以常見算法為準,各家規則略有不同,以牌桌約定優先。
+          </div>
         </section>
       )}
 
@@ -800,6 +933,49 @@ const S = {
     color: "#8A7F6E",
     fontSize: 13,
     fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  taiItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    padding: "10px 12px",
+    marginBottom: 6,
+    borderRadius: 10,
+    border: "1.5px solid #E4DBC6",
+    background: "#FFFDF6",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  taiItemOn: { borderColor: "#B3402E", background: "#FBEFE9" },
+  taiVal: {
+    fontSize: 15,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+    fontVariantNumeric: "tabular-nums",
+  },
+  taiBar: {
+    position: "sticky",
+    bottom: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 12,
+    background: "#EFE7D2",
+    boxShadow: "0 4px 12px rgba(0,0,0,.18)",
+  },
+  taiApply: {
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "none",
+    background: "linear-gradient(180deg,#C24A36,#A93A28)",
+    color: "#FFF8EC",
+    fontSize: 14,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
   },
