@@ -25,37 +25,38 @@ const genRoomCode = () => String(Math.floor(1000 + Math.random() * 9000));
 
 // ── 胡牌台數表(台灣 16 張常見算法)──
 // multi: 可累計的牌型(每張/每組/每連一莊),max 為累計上限
+// ex: 麻將牌示範(Unicode 麻將字元 🀀–🀩;情境型牌型沒有固定牌面就不放)
 const TAI_TABLE = [
   { name: "莊家", tai: 1, desc: "莊家胡牌或被自摸,多算 1 台" },
   { name: "連莊拉莊", tai: 2, desc: "莊家連 N 拉 N,每連一莊加 2 台", multi: true, max: 8 },
-  { name: "自摸", tai: 1, desc: "自己摸進胡牌" },
+  { name: "自摸", tai: 1, desc: "自己摸進胡牌", ex: "🀊🀋 ＋ 自己摸進 🀌" },
   { name: "門清", tai: 1, desc: "沒有吃、碰、明槓(暗槓不影響)" },
-  { name: "獨聽", tai: 1, desc: "聽單吊、中洞或邊張" },
+  { name: "獨聽", tai: 1, desc: "聽單吊、中洞或邊張", ex: "🀈🀊 聽 🀉(中洞)" },
   { name: "半求人", tai: 1, desc: "吃碰槓到只剩單吊,自摸胡牌(自摸台另計)" },
-  { name: "槓上開花", tai: 1, desc: "開槓補牌後自摸" },
+  { name: "槓上開花", tai: 1, desc: "開槓補牌後自摸", ex: "🀛🀛🀛🀛 開槓 ➜ 補牌自摸" },
   { name: "海底撈月", tai: 1, desc: "摸牆上最後一張牌自摸" },
   { name: "河底撈魚", tai: 1, desc: "胡本局最後一張打出的牌" },
   { name: "搶槓", tai: 1, desc: "胡別人加槓的那張牌" },
-  { name: "花牌(正花)", tai: 1, desc: "對應自己門風的花牌,每張 1 台", multi: true, max: 8 },
-  { name: "圈風台", tai: 1, desc: "手上有圈風的刻子(如東風圈的東)" },
-  { name: "門風台", tai: 1, desc: "手上有自己門風的刻子" },
-  { name: "三元牌", tai: 1, desc: "中、發、白的刻子,每組 1 台", multi: true, max: 3 },
-  { name: "平胡", tai: 2, desc: "全順子、無字無花、非獨聽、非自摸" },
+  { name: "花牌(正花)", tai: 1, desc: "對應自己門風的花牌,每張 1 台", multi: true, max: 8, ex: "🀢🀣🀤🀥 🀦🀧🀨🀩" },
+  { name: "圈風台", tai: 1, desc: "手上有圈風的刻子(如東風圈的東)", ex: "🀀🀀🀀" },
+  { name: "門風台", tai: 1, desc: "手上有自己門風的刻子", ex: "🀁🀁🀁(南家的南)" },
+  { name: "三元牌", tai: 1, desc: "中、發、白的刻子,每組 1 台", multi: true, max: 3, ex: "🀄🀄🀄 或 🀅🀅🀅 或 🀆🀆🀆" },
+  { name: "平胡", tai: 2, desc: "全順子、無字無花、非獨聽、非自摸", ex: "🀇🀈🀉 🀓🀔🀕 🀝🀞🀟 …" },
   { name: "全求人", tai: 2, desc: "全靠吃碰只剩單吊,胡別人打的牌" },
-  { name: "三暗刻", tai: 2, desc: "三組自己摸齊的暗刻" },
-  { name: "碰碰胡", tai: 4, desc: "全部是刻子,沒有順子" },
-  { name: "混一色", tai: 4, desc: "整手只有一種花色加字牌" },
-  { name: "小三元", tai: 4, desc: "中發白其中兩組刻子,第三種當眼" },
-  { name: "四暗刻", tai: 5, desc: "四組自己摸齊的暗刻" },
-  { name: "清一色", tai: 8, desc: "整手同一種花色,沒有字牌" },
-  { name: "大三元", tai: 8, desc: "中、發、白三組刻子" },
-  { name: "小四喜", tai: 8, desc: "東南西北其中三組刻子,第四種當眼" },
-  { name: "五暗刻", tai: 8, desc: "五組自己摸齊的暗刻" },
-  { name: "八仙過海", tai: 8, desc: "八張花牌全部收齊" },
-  { name: "七搶一", tai: 8, desc: "自己七張花,搶胡別人的第八張花" },
+  { name: "三暗刻", tai: 2, desc: "三組自己摸齊的暗刻", ex: "🀈🀈🀈 🀔🀔🀔 🀞🀞🀞" },
+  { name: "碰碰胡", tai: 4, desc: "全部是刻子,沒有順子", ex: "🀉🀉🀉 🀕🀕🀕 🀟🀟🀟 🀁🀁🀁 …" },
+  { name: "混一色", tai: 4, desc: "整手只有一種花色加字牌", ex: "🀇🀈🀉 🀍🀍🀍 🀀🀀🀀 🀄🀄 …" },
+  { name: "小三元", tai: 4, desc: "中發白其中兩組刻子,第三種當眼", ex: "🀄🀄🀄 🀅🀅🀅 🀆🀆" },
+  { name: "四暗刻", tai: 5, desc: "四組自己摸齊的暗刻", ex: "🀈🀈🀈 🀔🀔🀔 🀞🀞🀞 🀂🀂🀂" },
+  { name: "清一色", tai: 8, desc: "整手同一種花色,沒有字牌", ex: "🀇🀈🀉 🀊🀋🀌 🀍🀍🀍 🀏🀏 …" },
+  { name: "大三元", tai: 8, desc: "中、發、白三組刻子", ex: "🀄🀄🀄 🀅🀅🀅 🀆🀆🀆" },
+  { name: "小四喜", tai: 8, desc: "東南西北其中三組刻子,第四種當眼", ex: "🀀🀀🀀 🀁🀁🀁 🀂🀂🀂 🀃🀃" },
+  { name: "五暗刻", tai: 8, desc: "五組自己摸齊的暗刻", ex: "🀈🀈🀈 🀔🀔🀔 🀞🀞🀞 🀂🀂🀂 🀄🀄🀄" },
+  { name: "八仙過海", tai: 8, desc: "八張花牌全部收齊", ex: "🀢🀣🀤🀥🀦🀧🀨🀩" },
+  { name: "七搶一", tai: 8, desc: "自己七張花,搶胡別人的第八張花", ex: "🀢🀣🀤🀥🀦🀧🀨 搶 🀩" },
   { name: "天聽", tai: 8, desc: "配完牌(莊家打第一張前)就聽牌" },
-  { name: "字一色", tai: 16, desc: "整手全是字牌" },
-  { name: "大四喜", tai: 16, desc: "東南西北四組刻子" },
+  { name: "字一色", tai: 16, desc: "整手全是字牌", ex: "🀀🀀🀀 🀂🀂🀂 🀄🀄🀄 🀅🀅 …" },
+  { name: "大四喜", tai: 16, desc: "東南西北四組刻子", ex: "🀀🀀🀀 🀁🀁🀁 🀂🀂🀂 🀃🀃🀃" },
   { name: "天胡", tai: 16, desc: "莊家起手配牌就胡" },
   { name: "地胡", tai: 16, desc: "閒家第一輪摸牌就自摸胡" },
 ];
@@ -554,6 +555,7 @@ export default function MahjongLedger() {
                           <div style={{ fontSize: 12, color: "#8A7F6E", marginTop: 2 }}>
                             {t.desc}
                           </div>
+                          {t.ex && <div style={S.taiEx}>{t.ex}</div>}
                         </div>
                         <div style={{ ...S.taiVal, color: n > 0 ? "#B3402E" : "#8A7F6E" }}>
                           {t.multi && n > 1 ? `${t.tai * n}` : t.tai} 台
@@ -950,6 +952,15 @@ const S = {
     fontFamily: "inherit",
   },
   taiItemOn: { borderColor: "#B3402E", background: "#FBEFE9" },
+  taiEx: {
+    // 麻將 Unicode 字元筆畫細,放大一點才看得清楚
+    fontSize: 22,
+    lineHeight: 1.25,
+    marginTop: 4,
+    color: "#3A332A",
+    letterSpacing: 1,
+    wordBreak: "keep-all",
+  },
   taiVal: {
     fontSize: 15,
     fontWeight: 800,
