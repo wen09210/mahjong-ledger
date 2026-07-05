@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>麻將記帳</title>
+  <style>
+    body { margin: 0; background: #F5F1E8; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- window.storage 墊片:用 localStorage 模擬 claude.ai Artifact 的儲存 API -->
+  <script>
+    window.storage = {
+      get: async (key) => ({ value: localStorage.getItem(key) }),
+      set: async (key, value) => { localStorage.setItem(key, value); },
+    };
+  </script>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    // 直接載入 mahjong-ledger.jsx(單一原始檔),移除 import/export 後用 Babel 轉譯執行
+    fetch("./mahjong-ledger.jsx")
+      .then((r) => r.text())
+      .then((src) => {
+        src = src
+          .replace(/^import\s.*$/m, "const { useState, useEffect } = React;")
+          .replace("export default function MahjongLedger", "function MahjongLedger");
+        const code = Babel.transform(src, {
+          presets: [["react", { runtime: "classic" }]],
+        }).code;
+        window.eval(code);
+        ReactDOM.createRoot(document.getElementById("root")).render(
+          React.createElement(MahjongLedger)
+        );
+      })
+      .catch((e) => {
+        document.getElementById("root").textContent = "載入失敗:" + e.message;
+      });
+  </script>
+</body>
+</html>
