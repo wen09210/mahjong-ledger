@@ -26,6 +26,9 @@
 - 樣式全部是 inline style(S 物件)+ 一小段 <style> CSS,無 Tailwind 依賴
 - 僅依賴 React(useState/useEffect),無其他套件
 - 金額輸入使用 type="text" + inputMode="numeric"(避免受控數字輸入的編輯問題)
+- 驗證改動:無 build step,直接開 index.html 點過流程即可。遠端環境若 unpkg/jsdelivr
+  被擋,可從 registry.npmjs.org 抓 react/react-dom/@babel/standalone 的 tarball
+  取出 UMD 檔本地供應(Trystero 載不到沒關係,共享功能會自動隱藏)
 
 ## 使用者接下來想做的事
 1. git init、建立分支(feature/mahjong-ledger)、推到 GitHub
