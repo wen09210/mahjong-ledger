@@ -1,2 +1,4 @@
 .DS_Store
-.claude/
+# 忽略 .claude 下的本機設定/狀態,但保留專案 skills(供版控與協作共用)
+.claude/*
+!.claude/skills/
